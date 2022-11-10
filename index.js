@@ -17,16 +17,55 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+const verifyJWT = (req,res,next) =>{
+  const authHeader = req.headers.authorization;
+  if(!authHeader){
+    res.status(401).send({message: 'unauthorized access'})
+  }
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,function (err,decoded){
+    if(err){
+      res.status(401).send({message: 'unauthorized access'})
+    }
+    req.decoded = decoded;
+    next();
+
+  })
+  
+
+
+}
+
 const run = async () => {
   try {
     const serviceCollection = client.db("serviceReview").collection("services");
     const reviewCollection = client.db("serviceReview").collection("reviews");
+
+    app.post('/jwt',(req,res) =>{
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'})
+
+      res.send({token});
+
+
+      console.log(user);
+
+    })
+
 
     app.get("/services", async (req, res) => {
       const query = {};
       const cursor = serviceCollection.find(query);
 
       const services = await cursor.limit(3).toArray();
+
+      res.send(services.reverse());
+    });
+    app.get("/reviews", async (req, res) => {
+      const query = {};
+      const cursor = reviewCollection.find(query);
+
+      const services = await cursor.toArray();
 
       res.send(services.reverse());
     });
@@ -55,14 +94,22 @@ const run = async () => {
       res.send(reviews);
     });
 
-    app.get("/reviewsByUser", async (req, res) => {
-      const id = req.query.userId;
-      const query = { userId: id };
+    app.get("/reviewsByUser",verifyJWT, async (req, res) => {
+
+       const decoded = req.decoded;
+
+       console.log('inside',decoded);
+
+
+
+       const id = req.query.userId;
+        const query = { userId: id };
+
+
       const cursor = reviewCollection.find(query);
       const reviews = await cursor.toArray();
       res.send(reviews);
     });
-
 
     app.post("/addReview", async (req, res) => {
       const review = req.body;
@@ -70,46 +117,40 @@ const run = async () => {
       res.send(result);
     });
 
-    app.get('/review/:id',async (req,res) =>{
+    app.get("/review/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: ObjectId(id)};
+      const query = { _id: ObjectId(id) };
       const review = await reviewCollection.findOne(query);
       res.send(review);
-      
-    })
+    });
 
-    app.patch('/review/:id', async (req, res) => {
+    app.patch("/review/:id", async (req, res) => {
       const id = req.params.id;
       const text = req.body.text;
       const ratings = req.body.ratings;
-      const query = { _id: ObjectId(id) }
+      const query = { _id: ObjectId(id) };
       const updatedDoc = {
-          $set: {
-              text: text,
-              ratings: ratings,
-          }
-      }
+        $set: {
+          text: text,
+          ratings: ratings,
+        },
+      };
       const result = await reviewCollection.updateOne(query, updatedDoc);
       res.send(result);
-  })
-
-    app.delete('/review/:id',async (req,res) =>{
-        const id = req.params.id;
-        const query = { _id: ObjectId(id) };
-        const result = await reviewCollection.deleteOne(query);
-        res.send(result);
     });
 
+    app.delete("/review/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await reviewCollection.deleteOne(query);
+      res.send(result);
+    });
 
-    app.post('/service', async (req, res) => {
+    app.post("/service", async (req, res) => {
       const service = req.body;
       const result = await serviceCollection.insertOne(service);
       res.send(result);
-  });
-
-
-
-
+    });
   } finally {
     // await client.close();
   }
