@@ -94,14 +94,7 @@ const run = async () => {
       res.send(reviews);
     });
 
-    app.get("/reviewsByUser",verifyJWT, async (req, res) => {
-
-       const decoded = req.decoded;
-
-       console.log('inside',decoded);
-
-
-
+    app.get("/reviewsByUser", async (req, res) => {
        const id = req.query.userId;
         const query = { userId: id };
 
