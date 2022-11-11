@@ -31,9 +31,6 @@ const verifyJWT = (req,res,next) =>{
     next();
 
   })
-  
-
-
 }
 
 const run = async () => {
@@ -94,7 +91,13 @@ const run = async () => {
       res.send(reviews);
     });
 
-    app.get("/reviewsByUser", async (req, res) => {
+    app.get("/reviewsByUser", verifyJWT, async (req, res) => {
+      const decoded = req.decoded;
+      if (decoded.userId !== req.query.userId) {
+          res.status(403).send({ message: 'unauthorized access' })
+      }
+
+
        const id = req.query.userId;
         const query = { userId: id };
 
